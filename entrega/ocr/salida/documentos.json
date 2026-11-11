@@ -1,0 +1,144 @@
+{
+  "generado": "2026-11-06",
+  "motor": "Tesseract 5.5.3.20260724 (spa)",
+  "documentos": [
+    {
+      "fichero": "01_poliza_AB-456789.jpg",
+      "psm": 4,
+      "tabla_detectada": false,
+      "confianza_media": 93.0,
+      "texto": "SEGUROS ANGEL - CONDICIONES PARTICULARES\nNúmero de póliza: AB-456789\nTomador: Alonso de la Fuente — NIF: 12345678Z\nVehículo: Seat León 1.5 TS] Matrícula: 1234 BCD\nModalidad: Todo riesgo con franquicia\nFranquicia por siniestro: 300,00 EUR\nFecha de efecto: 14/03/2026 Vencimiento: 14/03/2027\nPrima anual total: 412,35 EUR (pago anual domiciliado)\nGarantías contratadas\n- Responsabilidad civil obligatoria y voluntaria hasta 50.000.000,00 EUR\n- Daños propios con franquicia de 300,00 EUR\n- Lunas, robo e incendio sin franquicia\n- Asistencia en viaje desde el kilómetro O con remolque hasta 50 km\n- Vehículo de sustitución hasta 7 días por avería o accidente\nConductor habitual: el tomador. Se admiten conductores ocasionales\nmayores de 25 años con más de 2 años de carné.",
+      "campos": {
+        "matriculas": [
+          "1234BCD"
+        ],
+        "polizas": [
+          "AB-456789"
+        ],
+        "referencias": [],
+        "telefonos": [],
+        "nifs": [
+          "12345678Z"
+        ],
+        "fechas": [
+          "2026-03-14",
+          "2027-03-14"
+        ],
+        "importes_eur": [
+          300.0,
+          412.35,
+          50000000.0
+        ],
+        "descartados_por_validacion": []
+      }
+    },
+    {
+      "fichero": "02_condicionado_asistencia.jpg",
+      "psm": 6,
+      "tabla_detectada": false,
+      "confianza_media": 94.6,
+      "texto": "CONDICIONADO GENERAL - ASISTENCIA EN CARRETERA\nReferencia del documento: CG-AUTO-2026/03\nEdición: 01/01/2026\nArtículo 1. Ámbito\nLa asistencia se presta en España, Andorra y el resto de Europa,\nlas 24 horas del día, los 365 días del año, en el 900 123 456.\nArtículo 2. Remolque\nModalidad Terceros básico: no incluye asistencia en carretera.\nModalidad Terceros ampliado: remolque hasta 25 km desde el km 25.\nModalidades Todo riesgo: remolque hasta 50 km desde el km 0,\nEl exceso de kilómetros se factura a 1,20 EUR por kilómetro.\nArtículo 3. Tiempos de llegada\nTiempo máximo de llegada de la grúa: 45 minutos en ciudad y\n90 minutos en carretera. Si se supera, se abonan 30,00 EUR.\nArtículo 4. Exclusiones\nNo se cubren vehículos en competiciones, sin |TV en vigor ni los\nservicios solicitados directamente a otra empresa sin autorización.",
+      "campos": {
+        "matriculas": [],
+        "polizas": [],
+        "referencias": [
+          "CG-AUTO-2026/03"
+        ],
+        "telefonos": [
+          "900123456"
+        ],
+        "nifs": [],
+        "fechas": [
+          "2026-01-01"
+        ],
+        "importes_eur": [
+          1.2,
+          30.0
+        ],
+        "descartados_por_validacion": []
+      }
+    },
+    {
+      "fichero": "03_tabla_modalidades.jpg",
+      "psm": "tabla por celdas (psm 7)",
+      "tabla_detectada": true,
+      "confianza_media": 95.3,
+      "texto": "SEGUROS ANGEL - MODALIDADES DE SEGURO DE COCHE 2026\nCobertura | Terceros básico | Terceros ampliado | Todo riesgo franq. | Todo riesgo\nResp. civil | Sí | Si | Si | St\nLunas | No | Si | Si | Si\nRobo e incendio | No | Si | Sí | El\nAsistencia | No | Desde km 25 | Desde km 0 | Desde km O\nDaños propios | No | No | Franquicia 300 | Sin franquicia\nCoche sustitución | No | No | 7 días | 15 días\nPrima desde | 289,90 EUR | 355,00 EUR | 412,35 EUR | 640,00 EUR\nPrecios orientativos para conductor de 35 años en Madrid.\nVálidos para contrataciones entre el 01/01/2026 y el 31/12/2026.",
+      "campos": {
+        "matriculas": [],
+        "polizas": [],
+        "referencias": [],
+        "telefonos": [],
+        "nifs": [],
+        "fechas": [
+          "2026-01-01",
+          "2026-12-31"
+        ],
+        "importes_eur": [
+          289.9,
+          355.0,
+          412.35,
+          640.0
+        ],
+        "descartados_por_validacion": []
+      }
+    },
+    {
+      "fichero": "04_procedimiento_siniestros.jpg",
+      "psm": 6,
+      "tabla_detectada": false,
+      "confianza_media": 94.6,
+      "texto": "CÓMO DECLARAR UN SINIESTRO (PARTE DE ACCIDENTE)\nReferencia: PRO-SIN-07 — Actualizado: 15/09/2026\n1. Comunique el siniestro en un plazo máximo de 7 días desde\nque lo conozca, en el 900 123 456 o en la app de Seguros Angel.\n2. Si hay otro vehículo implicado, rellene la Declaración Amistosa\nde Accidente firmada por ambos conductores.\n3. Aporte fotos de los daños, el permiso de circulación y el\nnúmero de póliza (formato AB-123456).\n4. Un perito contactará con usted en un plazo de 72 horas para\nfijar la cita de peritación en un taller concertado.\n5. En talleres concertados la reparación no requiere adelantar pago.\nSi hay heridos llame primero al 112.",
+      "campos": {
+        "matriculas": [],
+        "polizas": [
+          "AB-123456"
+        ],
+        "referencias": [
+          "PRO-SIN-07"
+        ],
+        "telefonos": [
+          "900123456"
+        ],
+        "nifs": [],
+        "fechas": [
+          "2026-09-15"
+        ],
+        "importes_eur": [],
+        "descartados_por_validacion": []
+      }
+    },
+    {
+      "fichero": "05_recibo_prima.jpg",
+      "psm": 4,
+      "tabla_detectada": false,
+      "confianza_media": 91.0,
+      "texto": "RECIBO DE PRIMA\nRecibo número: RC-2026-004512\nPóliza: AB-456790 Tomador: Luis Gómez NIF: 87654321X\nVehículo: Volkswagen Golf Matrícula: 5678 FGH\nModalidad: Terceros básico\nPeriodo: 20/11/2025 a 20/11/2026\nImporte total: 289,90 EUR\nFecha de cargo: 20/11/2025\nRenovación automática salvo aviso con un mes de antelación.\nPara contratar asistencia en carretera llame al 900 123 456.",
+      "campos": {
+        "matriculas": [
+          "5678FGH"
+        ],
+        "polizas": [
+          "AB-456790"
+        ],
+        "referencias": [
+          "RC-2026-004512"
+        ],
+        "telefonos": [
+          "900123456"
+        ],
+        "nifs": [
+          "87654321X"
+        ],
+        "fechas": [
+          "2025-11-20",
+          "2026-11-20"
+        ],
+        "importes_eur": [
+          289.9
+        ],
+        "descartados_por_validacion": []
+      }
+    }
+  ]
+}

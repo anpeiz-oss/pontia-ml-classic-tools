@@ -1,0 +1,16 @@
+__pycache__/
+**/*.pyc
+env-*/
+.venv/
+ejer2/
+
+# Secretos: nunca al repositorio
+.env
+**/.env
+*credentials*.json
+*-key.json
+clave*.json
+
+# Ficheros temporales del cliente de voz
+respuesta.wav
+.pytest_cache/

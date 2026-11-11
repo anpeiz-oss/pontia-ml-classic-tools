@@ -1,0 +1,21 @@
+# Webhook
+fastapi
+uvicorn[standard]
+python-dotenv
+
+# Modelo de lenguaje
+google-genai
+
+# OCR (ademas hay que instalar el programa Tesseract con el idioma espanol)
+pytesseract
+pillow
+pymupdf
+
+# Voz
+google-cloud-dialogflow
+sounddevice
+numpy
+
+# Tests
+pytest
+httpx
