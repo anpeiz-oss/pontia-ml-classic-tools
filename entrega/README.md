@@ -55,6 +55,10 @@ El export del agente (intenciones, entidades, frases de entrenamiento y contexto
 
 **Contexto gestionado por el webhook.** El webhook guarda en `solicitar_grua-followup` la matrícula y la ciudad ya validadas y un `estado`. Así la confirmación usa los datos validados y no los que entendió Dialogflow, y la corrección funciona aunque el usuario solo diga la matrícula nueva.
 
+**Follow-ups y un único contexto.** `solicitar_grua-si` y `solicitar_grua-no` se crean como follow-ups de `solicitar_grua`, y el contexto que Dialogflow genera para ellos (`solicitar_grua-followup`) es el único del agente: si se sustituye por uno propio, la consola deja de mostrarlos anidados. `corregir_dato` es una intención normal con ese mismo contexto de entrada, porque un follow-up *custom* añade un segundo contexto (`solicitar_grua-followup-2`).
+
+**Ejemplos negativos.** El `Default Fallback Intent` tiene frases ajenas al negocio («cuéntame un chiste», «¿qué tiempo hace?») para que Dialogflow no las fuerce a una intención. También pasan por el webhook, y el LLM responde que no aparece en la documentación.
+
 **OCR.** Los documentos son cinco imágenes de documentos ficticios de Seguros Angel (póliza, condicionado de asistencia, tabla de modalidades, procedimiento de siniestros y recibo), generadas por `ocr/generar_documentos.py` con giro, ruido y desenfoque de escáner. Son imágenes, no PDF con texto, así que la extracción es OCR real. Preprocesado en `ocr/ocr.py`:
 
 1. Escala de grises, reescalado a 2.000 px de ancho, filtro de mediana contra el ruido y autocontraste.
