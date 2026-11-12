@@ -15,8 +15,12 @@ ANTES DE EJECUTAR:
        GOOGLE_APPLICATION_CREDENTIALS=C:\\ruta\\clave.json
 
 Uso (desde la carpeta entrega/):
-    python voz/cliente_voz.py            # Enter para hablar, q para salir
-    python voz/cliente_voz.py --texto    # escribe en vez de hablar
+    python voz/cliente_voz.py               # Enter para hablar, q para salir
+    python voz/cliente_voz.py --texto       # escribe en vez de hablar
+    python voz/cliente_voz.py --microfonos  # lista los microfonos disponibles
+
+Para usar un microfono distinto del predeterminado de Windows, pon en el .env
+MICROFONO=<numero de la lista> o MICROFONO=<parte del nombre>.
 """
 
 import os
@@ -39,6 +43,8 @@ IDIOMA = "es"
 VOZ = os.environ.get("DIALOGFLOW_VOZ", "es-ES-Neural2-F")
 FS = 16000          # Dialogflow espera 16 kHz para LINEAR_16
 SEGUNDOS = int(os.environ.get("SEGUNDOS_GRABACION", "5"))
+MICROFONO = os.environ.get("MICROFONO", "").strip()
+NIVEL_MINIMO = 300  # pico de amplitud (int16) por debajo del cual es silencio
 FICHERO_AUDIO = Path(__file__).resolve().parent / "respuesta.wav"
 
 # Un SESSION_ID por conversación, no por frase: de él cuelgan los contextos.
@@ -58,10 +64,38 @@ SALIDA_AUDIO = dialogflow.OutputAudioConfig(
 
 # Grabación y reproducción
 
-def escuchar(segundos: int = SEGUNDOS) -> bytes:
+def microfono():
+    """Indice del microfono elegido en MICROFONO, o None para el predeterminado."""
+    if not MICROFONO:
+        return None
+    if MICROFONO.isdigit():
+        return int(MICROFONO)
+    for i, d in enumerate(sd.query_devices()):
+        if d["max_input_channels"] > 0 and MICROFONO.lower() in d["name"].lower():
+            return i
+    raise SystemExit(f"No encuentro ningun microfono que contenga '{MICROFONO}'. "
+                     "Usa --microfonos para ver la lista.")
+
+
+def listar_microfonos() -> None:
+    predeterminado = sd.default.device[0]
+    for i, d in enumerate(sd.query_devices()):
+        if d["max_input_channels"] > 0:
+            marca = "  <- predeterminado" if i == predeterminado else ""
+            print(f"{i:3}  {d['name']}{marca}")
+
+
+def escuchar(segundos: int = SEGUNDOS) -> bytes | None:
     print(f"\nHabla ({segundos}s)...")
-    audio = sd.rec(int(segundos * FS), samplerate=FS, channels=1, dtype="int16")
+    audio = sd.rec(int(segundos * FS), samplerate=FS, channels=1, dtype="int16",
+                   device=microfono())
     sd.wait()
+    pico = int(np.abs(audio).max())
+    if pico < NIVEL_MINIMO:
+        nombre = sd.query_devices(microfono() if microfono() is not None else sd.default.device[0])["name"]
+        print(f"  No llega sonido del microfono '{nombre}' (nivel {pico}). Comprueba que no "
+              "este silenciado o elige otro con MICROFONO en el .env (lista: --microfonos).")
+        return None
     return audio.tobytes()
 
 
@@ -107,6 +141,9 @@ def detectar_por_texto(texto: str):
 # Bucle de conversación
 
 def main():
+    if "--microfonos" in sys.argv:
+        listar_microfonos()
+        return
     modo_texto = "--texto" in sys.argv
     print("=" * 60)
     print("Seguros Angel - cliente de voz de Dialogflow")
@@ -126,14 +163,20 @@ def main():
             respuesta = detectar_por_texto(linea)
         else:
             audio = escuchar()
+            if audio is None:
+                continue
             inicio = time.perf_counter()
             respuesta = detectar_por_voz(audio)
         latencia = time.perf_counter() - inicio
 
         r = respuesta.query_result
+        if not r.query_text:
+            print("  No se ha reconocido ninguna frase. Habla mas cerca del microfono "
+                  "y empieza justo despues de pulsar Enter.")
+            continue
         print(f"  Has dicho  : {r.query_text}")
         print(f"  Intención  : {r.intent.display_name} ({r.intent_detection_confidence:.2f})")
-        print(f"  Parámetros : {dict(r.parameters)}")
+        print(f"  Parámetros : {dict(r.parameters) if r.parameters else {}}")
         print(f"  Responde   : {sin_ssml(r.fulfillment_text)}")
         print(f"  Latencia   : {latencia:.2f}s {'(OK)' if latencia < 5 else '(DEMASIADO LENTO)'}")
 
