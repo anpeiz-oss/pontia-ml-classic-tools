@@ -8,6 +8,7 @@ No llaman al LLM: se sustituye por una funcion falsa.
 import os
 
 os.environ["SSML"] = "0"  # en los tests comprobamos el texto plano
+os.environ["LLM_KEEPALIVE"] = "0"  # sin llamadas reales de calentamiento
 
 import pytest
 from fastapi.testclient import TestClient
@@ -201,9 +202,58 @@ def test_si_un_modelo_falla_responde_el_otro(monkeypatch):
     assert "50 km" in r["fulfillmentText"]
 
 
+def test_prefiere_gemini_si_contesta_a_tiempo(monkeypatch):
+    import time
+
+    def por_modelo(prompt, modelo=None):
+        if modelo == "ollama:local":
+            return "respuesta local"
+        time.sleep(0.3)
+        return "respuesta de gemini"
+
+    monkeypatch.setattr(main.documental, "modelos", ["gemini", "ollama:local"])
+    monkeypatch.setattr(main.documental, "espera_preferido", 1.0)
+    monkeypatch.setattr(main.documental, "_preguntar", por_modelo)
+    r = enviar("consultar_condiciones", texto="¿Plazo para dar un parte?")
+    assert r["fulfillmentText"] == "respuesta de gemini"
+
+
+def test_usa_el_modelo_local_si_gemini_tarda(monkeypatch):
+    import time
+
+    def por_modelo(prompt, modelo=None):
+        if modelo == "ollama:local":
+            return "El plazo es de 7 días."
+        time.sleep(3)
+        return "demasiado tarde"
+
+    monkeypatch.setattr(main.documental, "modelos", ["gemini", "ollama:local"])
+    monkeypatch.setattr(main.documental, "espera_preferido", 0.5)
+    monkeypatch.setattr(main.documental, "timeout", 2.0)
+    monkeypatch.setattr(main.documental, "_preguntar", por_modelo)
+    inicio = time.perf_counter()
+    r = enviar("consultar_condiciones", texto="¿Plazo para dar un parte?")
+    assert r["fulfillmentText"] == "El plazo es de 7 días."
+    assert time.perf_counter() - inicio < 1.0
+
+
+def test_usa_el_local_en_cuanto_gemini_falla(monkeypatch):
+    def por_modelo(prompt, modelo=None):
+        if modelo == "ollama:local":
+            return "El remolque cubre hasta 50 km."
+        raise RuntimeError("503 UNAVAILABLE")
+
+    monkeypatch.setattr(main.documental, "modelos", ["gemini", "ollama:local"])
+    monkeypatch.setattr(main.documental, "espera_preferido", 5.0)
+    monkeypatch.setattr(main.documental, "_preguntar", por_modelo)
+    r = enviar("consultar_condiciones", texto="¿Km de remolque?")
+    assert "50 km" in r["fulfillmentText"]
+
+
 def test_llm_lento_devuelve_respaldo(monkeypatch):
     import time
     monkeypatch.setattr(main.documental, "timeout", 0.2)
+    monkeypatch.setattr(main.documental, "espera_preferido", 0.1)
     monkeypatch.setattr(main.documental, "_preguntar", lambda p, m=None: time.sleep(1) or "tarde")
     r = enviar("consultar_condiciones", texto="¿Plazo para dar un parte?")
     assert "no puedo consultar" in r["fulfillmentText"]
