@@ -45,7 +45,7 @@ Un único contexto, `ctx_grua_en_curso`, que gestiona el webhook.
 | `despedida` | Cierra la conversación | – | cierra el contexto |
 | `Default Fallback Intent` | Lo no reconocido también va a la respuesta documental | – | – |
 
-La configuración exacta de cada intención (frases, prompts, contextos) está en [dialogflow/GUIA_CONSOLA.md](dialogflow/GUIA_CONSOLA.md) y el export del agente en `dialogflow/proyecto-aseguradora-api.zip`.
+El export del agente (intenciones, entidades, frases de entrenamiento y contextos) está en `dialogflow/proyecto-aseguradora-api.zip`.
 
 ## Decisiones técnicas
 
