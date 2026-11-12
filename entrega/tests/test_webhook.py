@@ -250,6 +250,30 @@ def test_usa_el_local_en_cuanto_gemini_falla(monkeypatch):
     assert "50 km" in r["fulfillmentText"]
 
 
+def test_gemini_colgado_no_bloquea_al_modelo_local(monkeypatch):
+    # Regresion: con un pool compartido, varias llamadas a Gemini colgadas
+    # dejaban en cola la del modelo local y se perdia el respaldo.
+    import threading
+    import time
+    bloqueo = threading.Event()
+
+    def por_modelo(prompt, modelo=None):
+        if modelo == "ollama:local":
+            return "El plazo es de 7 días."
+        bloqueo.wait(5)            # Gemini colgado
+        return "tarde"
+
+    monkeypatch.setattr(main.documental, "modelos", ["gemini", "ollama:local"])
+    monkeypatch.setattr(main.documental, "espera_preferido", 0.2)
+    monkeypatch.setattr(main.documental, "_preguntar", por_modelo)
+    try:
+        for _ in range(40):        # mas preguntas que hilos remotos
+            r = enviar("consultar_condiciones", texto="¿Plazo para dar un parte?")
+            assert r["fulfillmentText"] == "El plazo es de 7 días."
+    finally:
+        bloqueo.set()
+
+
 def test_llm_lento_devuelve_respaldo(monkeypatch):
     import time
     monkeypatch.setattr(main.documental, "timeout", 0.2)

@@ -12,13 +12,14 @@ Respuesta documental: preguntas sobre los documentos procesados con OCR.
   12/11/2026 el mismo modelo tardo entre 1 y 16 s). Por eso:
     * la pregunta se lanza A LA VEZ a los modelos de Gemini (GEMINI_MODEL y
       GEMINI_MODELOS_RESPALDO) y a un modelo local de Ollama (LLM_LOCAL);
-    * se prefiere la respuesta de Gemini (redacta mejor). Si ninguno de
-      Gemini ha contestado en LLM_ESPERA_PREFERIDO segundos, o han fallado
-      todos, se usa la respuesta local, que en caliente tarda < 0,5 s;
+    * se prefiere la respuesta de Gemini. Si ninguno de Gemini ha
+      contestado en LLM_ESPERA_PREFERIDO segundos, o han fallado todos, se
+      usa la respuesta local (qwen3:14b: 11/11 aciertos y 0,3 s de media en
+      caliente en la comparativa del README);
     * al arrancar se hace una llamada de calentamiento a cada modelo, y
       despues una cada LLM_KEEPALIVE segundos, para que la conexion no se
       enfrie y Ollama no descargue el modelo de la GPU (la primera carga
-      tarda ~8 s);
+      de un 14B tarda ~22 s);
     * hay un tiempo maximo total (LLM_TIMEOUT). Si se supera o fallan todos,
       se devuelve una frase de respaldo: Dialogflow corta a los 5 segundos y
       un webhook que no responde deja al usuario en silencio.
@@ -83,10 +84,10 @@ class Documental:
         self.documentos = cargar_documentos() if documentos is None else documentos
         self.contexto = construir_contexto(self.documentos)
         self.timeout = float(os.environ.get("LLM_TIMEOUT", "4"))
-        self.espera_preferido = float(os.environ.get("LLM_ESPERA_PREFERIDO", "2.5"))
+        self.espera_preferido = float(os.environ.get("LLM_ESPERA_PREFERIDO", "1.5"))
         self.modelo = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
         respaldo = os.environ.get("GEMINI_MODELOS_RESPALDO", "gemini-3.1-flash-lite")
-        local = os.environ.get("LLM_LOCAL", "ollama:qwen2.5:3b").strip()
+        local = os.environ.get("LLM_LOCAL", "ollama:qwen3:14b").strip()
         self.ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/")
         self.modelos = [self.modelo] + [m.strip() for m in respaldo.split(",")
                                         if m.strip() and m.strip() != self.modelo]
@@ -96,13 +97,20 @@ class Documental:
         self._preguntar = preguntar or self._preguntar_modelo
         self._cliente = None
         self._http = None
-        self._hilos = ThreadPoolExecutor(max_workers=8)
+        # Pools separados: una llamada a Gemini puede quedarse colgada mas de un
+        # minuto (visto en pruebas). Con un pool compartido, esos hilos ocupados
+        # dejaban en cola la llamada al modelo local y se perdia el respaldo.
+        self._hilos_remotos = ThreadPoolExecutor(max_workers=32)
+        self._hilos_local = ThreadPoolExecutor(max_workers=2)
         self._bloqueo = threading.Lock()
 
         keepalive = float(os.environ.get("LLM_KEEPALIVE", "60"))
         if preguntar is None and keepalive > 0:
-            threading.Thread(target=self._mantener_caliente, args=(keepalive,),
-                             daemon=True).start()
+            # Un hilo por modelo: si Gemini tarda en el calentamiento, no
+            # retrasa la carga del modelo local en la GPU
+            for modelo in self.modelos:
+                threading.Thread(target=self._mantener_caliente, args=(modelo, keepalive),
+                                 daemon=True).start()
 
     # Llamadas a los modelos
 
@@ -144,24 +152,26 @@ class Documental:
             "messages": [{"role": "system", "content": INSTRUCCIONES},
                          {"role": "user", "content": prompt}],
             "stream": False,
+            # Los Qwen 3.x "piensan" antes de responder y eso anade segundos.
+            # En modelos sin esa capacidad (qwen2.5) Ollama lo ignora.
+            "think": False,
             "keep_alive": "60m",   # que no descargue el modelo de la GPU
             "options": {"temperature": 0, "num_predict": 150, "num_ctx": 4096},
         })
         r.raise_for_status()
         return r.json()["message"]["content"].strip()
 
-    def _mantener_caliente(self, cada: float) -> None:
-        """Llamada minima a cada modelo al arrancar y cada `cada` segundos."""
+    def _mantener_caliente(self, modelo: str, cada: float) -> None:
+        """Llamada minima a un modelo al arrancar y cada `cada` segundos."""
+        if not es_local(modelo) and not os.environ.get("GOOGLE_API_KEY"):
+            return
         while True:
-            for modelo in self.modelos:
-                if not es_local(modelo) and not os.environ.get("GOOGLE_API_KEY"):
-                    continue
-                inicio = time.perf_counter()
-                try:
-                    self._preguntar("Responde solo: ok", modelo)
-                    print(f"LLM calentamiento {modelo}: {time.perf_counter() - inicio:.2f}s")
-                except Exception as e:
-                    print(f"LLM calentamiento {modelo} fallo: {str(e)[:120]}")
+            inicio = time.perf_counter()
+            try:
+                self._preguntar("Responde solo: ok", modelo)
+                print(f"LLM calentamiento {modelo}: {time.perf_counter() - inicio:.2f}s")
+            except Exception as e:
+                print(f"LLM calentamiento {modelo} fallo: {str(e)[:120]}")
             time.sleep(cada)
 
     # Eleccion de la respuesta
@@ -191,7 +201,10 @@ class Documental:
         prompt = PLANTILLA.format(contexto=self.contexto, pregunta=pregunta)
         inicio = time.perf_counter()
 
-        futuros = {self._hilos.submit(self._preguntar, prompt, m): m for m in self.modelos}
+        futuros = {
+            (self._hilos_local if es_local(m) else self._hilos_remotos).submit(self._preguntar, prompt, m): m
+            for m in self.modelos
+        }
         pendientes = set(futuros)
         resultados: dict[str, str | None] = {}
         eleccion = None
