@@ -8,15 +8,23 @@ Respuesta documental: preguntas sobre los documentos procesados con OCR.
 - Control de alucinaciones: el modelo debe contestar la marca NO_CONSTA si la
   respuesta no esta en los documentos, y el webhook la traduce a una frase
   explicita. Temperatura 0 y respuesta corta.
-- Control de latencia: la llamada al LLM tiene un tiempo maximo (LLM_TIMEOUT).
-  Si se supera o falla, se devuelve una frase de respaldo: Dialogflow corta
-  a los 5 segundos y un webhook que no responde deja al usuario en silencio.
+- Control de latencia: la latencia de Gemini es muy variable (en pruebas del
+  12/11/2026 el mismo modelo tardo entre 1 y 16 s). Por eso:
+    * la pregunta se lanza A LA VEZ a varios modelos (GEMINI_MODEL y
+      GEMINI_MODELOS_RESPALDO) y se usa la primera respuesta valida;
+    * al arrancar se hace una llamada de calentamiento a cada modelo, y
+      despues una cada LLM_KEEPALIVE segundos, para que la conexion no se
+      enfrie (la primera llamada en frio es la mas lenta);
+    * hay un tiempo maximo total (LLM_TIMEOUT). Si se supera o fallan todos,
+      se devuelve una frase de respaldo: Dialogflow corta a los 5 segundos y
+      un webhook que no responde deja al usuario en silencio.
 """
 
 import json
 import os
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import TimeoutError as TimeoutFuturo
 from pathlib import Path
 
@@ -66,21 +74,44 @@ class Documental:
     def __init__(self, documentos: list[dict] | None = None, preguntar=None):
         self.documentos = cargar_documentos() if documentos is None else documentos
         self.contexto = construir_contexto(self.documentos)
-        self.timeout = float(os.environ.get("LLM_TIMEOUT", "3.5"))
+        self.timeout = float(os.environ.get("LLM_TIMEOUT", "4"))
         self.modelo = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+        respaldo = os.environ.get("GEMINI_MODELOS_RESPALDO", "gemini-3.1-flash-lite")
+        self.modelos = [self.modelo] + [m.strip() for m in respaldo.split(",")
+                                        if m.strip() and m.strip() != self.modelo]
+        # preguntar(prompt, modelo) -> texto. Se puede inyectar en los tests.
         self._preguntar = preguntar or self._preguntar_gemini
         self._cliente = None
-        self._hilos = ThreadPoolExecutor(max_workers=4)
+        self._hilos = ThreadPoolExecutor(max_workers=8)
+        self._bloqueo = threading.Lock()
 
-    def _preguntar_gemini(self, prompt: str) -> str:
+        keepalive = float(os.environ.get("LLM_KEEPALIVE", "60"))
+        if preguntar is None and os.environ.get("GOOGLE_API_KEY") and keepalive > 0:
+            threading.Thread(target=self._mantener_caliente, args=(keepalive,),
+                             daemon=True).start()
+
+    def _mantener_caliente(self, cada: float) -> None:
+        """Llamada minima a cada modelo al arrancar y cada `cada` segundos."""
+        while True:
+            for modelo in self.modelos:
+                inicio = time.perf_counter()
+                try:
+                    self._preguntar("Responde solo: ok", modelo)
+                    print(f"LLM calentamiento {modelo}: {time.perf_counter() - inicio:.2f}s")
+                except Exception as e:
+                    print(f"LLM calentamiento {modelo} fallo: {str(e)[:120]}")
+            time.sleep(cada)
+
+    def _preguntar_gemini(self, prompt: str, modelo: str | None = None) -> str:
         # Import aqui para que los tests no necesiten la libreria ni la clave
         from google import genai
         from google.genai import types
 
-        if self._cliente is None:
-            # Ojo: la API de Gemini rechaza timeouts HTTP de menos de 10 s, por
-            # eso el limite de espera lo ponemos nosotros en responder().
-            self._cliente = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+        with self._bloqueo:
+            if self._cliente is None:
+                # Ojo: la API de Gemini rechaza timeouts HTTP de menos de 10 s, por
+                # eso el limite de espera lo ponemos nosotros en responder().
+                self._cliente = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
         config = types.GenerateContentConfig(
             system_instruction=INSTRUCCIONES,
             temperature=0.0,
@@ -88,7 +119,7 @@ class Documental:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
         respuesta = self._cliente.models.generate_content(
-            model=self.modelo, contents=prompt, config=config
+            model=modelo or self.modelo, contents=prompt, config=config
         )
         return (respuesta.text or "").strip()
 
@@ -97,16 +128,24 @@ class Documental:
             return RESPUESTA_NO_CONSTA
         prompt = PLANTILLA.format(contexto=self.contexto, pregunta=pregunta)
         inicio = time.perf_counter()
+        # Misma pregunta a todos los modelos a la vez; gana la primera respuesta
+        futuros = {self._hilos.submit(self._preguntar, prompt, m): m for m in self.modelos}
+        texto = None
         try:
-            texto = self._hilos.submit(self._preguntar, prompt).result(timeout=self.timeout)
+            for futuro in as_completed(futuros, timeout=self.timeout):
+                try:
+                    texto = futuro.result()
+                except Exception as e:
+                    print(f"ERROR LLM ({futuros[futuro]}): {str(e)[:150]}")
+                    continue
+                print(f"LLM: {futuros[futuro]} respondio en {time.perf_counter() - inicio:.2f}s")
+                break
         except TimeoutFuturo:
-            print(f"LLM: sin respuesta en {self.timeout}s, devuelvo respaldo")
+            print(f"LLM: ningun modelo respondio en {self.timeout}s, devuelvo respaldo")
+        # Los que sigan en marcha terminan solos en segundo plano; no se esperan
+
+        if texto is None:
             return RESPUESTA_ERROR
-        except Exception as e:
-            print("ERROR LLM:", e)
-            return RESPUESTA_ERROR
-        finally:
-            print(f"LLM: {time.perf_counter() - inicio:.2f}s")
 
         if not texto or MARCA_NO_CONSTA in texto.upper():
             return RESPUESTA_NO_CONSTA

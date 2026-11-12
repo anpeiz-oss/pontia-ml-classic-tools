@@ -75,7 +75,7 @@ Leída de golpe, la tabla de modalidades salía ilegible (sopa de letras con `|`
 
 **Por qué no la Knowledge Base de Dialogflow.** Es beta, solo admite documentos con texto (no hace OCR), no permite controlar el prompt ni el mensaje cuando no hay respuesta, y no deja ver qué contexto se ha usado. Con el webhook controlamos las tres cosas.
 
-**Modelo y latencia.** `gemini-3.5-flash-lite` responde en ~1 s con los documentos. Los modelos `flash` grandes dieron 503 por demanda o más de 10 s en las pruebas, inaceptable con el límite de 5 s. La llamada al LLM va en un hilo con un tiempo máximo (`LLM_TIMEOUT`, 3,5 s por defecto): si tarda o falla, el webhook responde «Ahora mismo no puedo consultar la documentación. ¿Quieres que te pase con un agente?» en lugar de dejar al usuario en silencio. El SDK no admite timeouts HTTP de menos de 10 s, por eso el corte es nuestro.
+**Modelo y latencia.** La latencia de Gemini es muy variable: el 06/11/2026 `gemini-3.5-flash-lite` respondía en ~1 s, y el 12/11/2026 el mismo modelo tardó entre 1 y 16 s con la misma pregunta. Para no depender de un solo modelo, la pregunta se lanza a la vez a `gemini-3.5-flash-lite` y `gemini-3.1-flash-lite` (`GEMINI_MODELOS_RESPALDO`) y se usa la primera respuesta. Al arrancar el webhook se hace una llamada de calentamiento a cada modelo y después otra cada 60 s (`LLM_KEEPALIVE`), porque la primera llamada en frío es la más lenta. Hay un tiempo máximo total (`LLM_TIMEOUT`, 4 s por defecto): si ningún modelo responde a tiempo, el webhook contesta «Ahora mismo no puedo consultar la documentación. ¿Quieres que te pase con un agente?» en lugar de dejar al usuario en silencio. El SDK no admite timeouts HTTP de menos de 10 s, por eso el corte es nuestro.
 
 **Datos de negocio.** Las pólizas son un diccionario en `webhook/negocio.py` (cuatro matrículas). Coinciden con los documentos: la póliza AB-456789 del Seat León 1234 BCD y el recibo AB-456790 del Golf 5678 FGH.
 
@@ -123,7 +123,7 @@ python voz/cliente_voz.py
 
 ## Pruebas
 
-`pytest` ejecuta 21 pruebas sin red: el flujo de la grúa con todos sus caminos (faltan datos, formato inválido, matrícula hablada, sin póliza, sin cobertura, confirmación sí y no, corrección de matrícula y de ciudad), las consultas, la respuesta documental con un LLM simulado (incluido el caso «no consta» y el de un LLM que tarda más del límite) y la validación de regex del OCR.
+`pytest` ejecuta 23 pruebas sin red: el flujo de la grúa con todos sus caminos (faltan datos, formato inválido, matrícula hablada, sin póliza, sin cobertura, confirmación sí y no, corrección de matrícula y de ciudad), las consultas, la respuesta documental con un LLM simulado (incluido el caso «no consta», el de un LLM que tarda más del límite y los de varios modelos en paralelo) y la validación de regex del OCR.
 
 ## Estructura
 

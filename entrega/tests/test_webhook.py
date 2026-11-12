@@ -153,7 +153,7 @@ def test_intencion_desconocida_siempre_responde():
 def llm_falso(monkeypatch):
     llamadas = []
 
-    def falso(prompt):
+    def falso(prompt, modelo=None):
         llamadas.append(prompt)
         return "NO_CONSTA" if "mascota" in prompt else "El remolque cubre hasta 50 km."
 
@@ -172,9 +172,38 @@ def test_pregunta_sin_respuesta_no_inventa(llm_falso):
     assert "no aparece en la documentación" in r["fulfillmentText"]
 
 
+def test_gana_el_modelo_que_responde_primero(monkeypatch):
+    import time
+
+    def por_modelo(prompt, modelo=None):
+        if modelo == "principal":
+            time.sleep(2)          # el principal se atasca
+            return "respuesta lenta"
+        return "El plazo para dar el parte es de 7 días."
+
+    monkeypatch.setattr(main.documental, "modelos", ["principal", "respaldo"])
+    monkeypatch.setattr(main.documental, "_preguntar", por_modelo)
+    inicio = time.perf_counter()
+    r = enviar("consultar_condiciones", texto="¿Plazo para dar un parte?")
+    assert "7 días" in r["fulfillmentText"]
+    assert time.perf_counter() - inicio < 1.5
+
+
+def test_si_un_modelo_falla_responde_el_otro(monkeypatch):
+    def por_modelo(prompt, modelo=None):
+        if modelo == "principal":
+            raise RuntimeError("503 UNAVAILABLE")
+        return "El remolque cubre hasta 50 km."
+
+    monkeypatch.setattr(main.documental, "modelos", ["principal", "respaldo"])
+    monkeypatch.setattr(main.documental, "_preguntar", por_modelo)
+    r = enviar("consultar_condiciones", texto="¿Cuántos km de remolque?")
+    assert "50 km" in r["fulfillmentText"]
+
+
 def test_llm_lento_devuelve_respaldo(monkeypatch):
     import time
     monkeypatch.setattr(main.documental, "timeout", 0.2)
-    monkeypatch.setattr(main.documental, "_preguntar", lambda p: time.sleep(1) or "tarde")
+    monkeypatch.setattr(main.documental, "_preguntar", lambda p, m=None: time.sleep(1) or "tarde")
     r = enviar("consultar_condiciones", texto="¿Plazo para dar un parte?")
     assert "no puedo consultar" in r["fulfillmentText"]
