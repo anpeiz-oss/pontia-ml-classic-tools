@@ -35,7 +35,7 @@ Un único contexto, `ctx_grua_en_curso`, que gestiona el webhook.
 | --- | --- | --- | --- |
 | `Default Welcome Intent` | Saludo y lo que sabe hacer | – | – |
 | `solicitar_grua` | Inicia el flujo de grúa | `matricula` (@matricula, regex, obligatoria), `ubicacion` (@sys.geo-city, obligatoria) | sale `ctx_grua_en_curso` |
-| `solicitar_grua-yes` | Confirma: abre el aviso con tiempo estimado según ciudad | – | entra y cierra `ctx_grua_en_curso` |
+| `solicitar_grua-si` | Confirma: abre el aviso con tiempo estimado según ciudad | – | entra y cierra `ctx_grua_en_curso` |
 | `solicitar_grua-no` | Niega: ofrece corregir o cancelar | – | entra `ctx_grua_en_curso` |
 | `corregir_dato` | Corrige matrícula o ciudad a mitad de flujo (extra) | `matricula`, `ubicacion` | entra `ctx_grua_en_curso` |
 | `consultar_coberturas` | Coberturas de la póliza de una matrícula | `matricula` | – |

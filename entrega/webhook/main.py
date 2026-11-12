@@ -11,7 +11,7 @@ y pegar la URL publica + /webhook en Dialogflow -> Fulfillment.
 
 Intenciones que gestiona (ver dialogflow/GUIA_CONSOLA.md):
     solicitar_grua            flujo con contexto ctx_grua_en_curso (slot filling)
-    solicitar_grua-yes        confirmacion: abre el aviso
+    solicitar_grua-si         confirmacion: abre el aviso
     solicitar_grua-no         negacion: ofrece corregir
     corregir_dato             correccion de matricula o ciudad a mitad de flujo
     consultar_coberturas      coberturas de la poliza de una matricula
@@ -193,7 +193,7 @@ async def webhook(request: Request):
 
     if intencion == "solicitar_grua":
         respuesta = gestionar_solicitar_grua(sesion, resultado)
-    elif intencion == "solicitar_grua-yes":
+    elif intencion == "solicitar_grua-si":
         respuesta = gestionar_confirmacion(sesion, resultado)
     elif intencion == "solicitar_grua-no":
         respuesta = gestionar_negacion(sesion, resultado)

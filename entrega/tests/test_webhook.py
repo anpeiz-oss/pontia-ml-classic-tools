@@ -83,7 +83,7 @@ def test_grua_camino_bueno_pide_confirmacion():
 def test_confirmacion_si_abre_aviso_y_cierra_contexto():
     guardado = [{"name": CTX, "parameters": {"matricula": "1234BCD", "ubicacion": "Madrid",
                                               "estado": "pendiente_confirmar"}}]
-    r = enviar("solicitar_grua-yes", contextos=guardado)
+    r = enviar("solicitar_grua-si", contextos=guardado)
     assert "AV-" in r["fulfillmentText"] and "30 minutos" in r["fulfillmentText"]
     assert ctx_salida(r)["lifespanCount"] == 0
 
