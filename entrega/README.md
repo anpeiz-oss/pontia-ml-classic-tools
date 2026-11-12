@@ -53,7 +53,7 @@ El export del agente (intenciones, entidades, frases de entrenamiento y contexto
 
 **Validación con regex en el webhook.** Aunque la entidad `@matricula` ya es una regex, el STT devuelve cosas como «1234 be ce de» o «1234-bcd». El webhook normaliza (mayúsculas, quita guiones y espacios, convierte letras deletreadas) y valida contra `^\d{4}[B-DF-HJ-NP-TV-Z]{3}$` (sin vocales, Ñ ni Q, como las matrículas actuales). La respuesta cambia según el resultado: formato inválido, matrícula sin póliza, póliza sin asistencia o petición de confirmación con los datos del vehículo.
 
-**Contexto gestionado por el webhook.** El webhook guarda en `solicitar_grua-followup` la matrícula y la ciudad ya validadas y un `estado`. Así la confirmación usa los datos validados y no los que entendió Dialogflow, y la corrección funciona aunque el usuario solo diga la matrícula nueva.
+**Contexto gestionado por el webhook.** El webhook guarda en `solicitar_grua-followup` la matrícula y la ciudad ya validadas y un `estado`. Así la confirmación usa los datos validados y no los que entendió Dialogflow, y la corrección funciona aunque el usuario solo diga la matrícula nueva. Se guardan con claves propias (`grua_matricula`, `grua_ubicacion`, `grua_estado`) porque Dialogflow copia en el contexto los parámetros de la intención detectada: con los mismos nombres, «estoy en Barcelona» en `corregir_dato` sobrescribía la matrícula validada con un valor vacío (fallo encontrado en las pruebas).
 
 **Follow-ups y un único contexto.** `solicitar_grua-si` y `solicitar_grua-no` se crean como follow-ups de `solicitar_grua`, y el contexto que Dialogflow genera para ellos (`solicitar_grua-followup`) es el único del agente: si se sustituye por uno propio, la consola deja de mostrarlos anidados. `corregir_dato` es una intención normal con ese mismo contexto de entrada, porque un follow-up *custom* añade un segundo contexto (`solicitar_grua-followup-2`).
 
@@ -123,7 +123,7 @@ python voz/cliente_voz.py
 
 ## Pruebas
 
-`pytest` ejecuta 20 pruebas sin red: el flujo de la grúa con todos sus caminos (faltan datos, formato inválido, matrícula hablada, sin póliza, sin cobertura, confirmación sí y no, corrección de matrícula y de ciudad), las consultas, la respuesta documental con un LLM simulado (incluido el caso «no consta» y el de un LLM que tarda más del límite) y la validación de regex del OCR.
+`pytest` ejecuta 21 pruebas sin red: el flujo de la grúa con todos sus caminos (faltan datos, formato inválido, matrícula hablada, sin póliza, sin cobertura, confirmación sí y no, corrección de matrícula y de ciudad), las consultas, la respuesta documental con un LLM simulado (incluido el caso «no consta» y el de un LLM que tarda más del límite) y la validación de regex del OCR.
 
 ## Estructura
 

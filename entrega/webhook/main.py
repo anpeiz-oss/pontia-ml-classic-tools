@@ -59,7 +59,19 @@ def responder(texto: str, ssml: str | None = None, contextos: list | None = None
     return cuerpo
 
 
-def contexto(sesion: str, lifespan: int, **parametros) -> dict:
+def contexto(sesion: str, lifespan: int, matricula: str = "", ubicacion: str = "",
+             estado: str = "") -> dict:
+    """
+    Guarda los datos validados con claves PROPIAS (grua_*), distintas de los
+    parametros de las intenciones (matricula, ubicacion). Dialogflow copia los
+    parametros de la intencion detectada en sus contextos de salida, y si se
+    llamasen igual, un turno como "estoy en Barcelona" (matricula vacia)
+    borraria la matricula ya validada.
+    """
+    parametros = {}
+    if lifespan:
+        parametros = {"grua_matricula": matricula, "grua_ubicacion": ubicacion,
+                      "grua_estado": estado}
     return {
         "name": f"{sesion}/contexts/{CONTEXTO}",
         "lifespanCount": lifespan,
@@ -67,12 +79,15 @@ def contexto(sesion: str, lifespan: int, **parametros) -> dict:
     }
 
 
-def parametros_contexto(resultado: dict) -> dict:
-    """Parametros guardados en solicitar_grua-followup (si esta activo)."""
+def datos_grua(resultado: dict) -> dict:
+    """Datos validados guardados en solicitar_grua-followup (si esta activo)."""
     for ctx in resultado.get("outputContexts", []):
         if ctx.get("name", "").endswith(f"/contexts/{CONTEXTO}"):
-            return ctx.get("parameters", {})
-    return {}
+            p = ctx.get("parameters", {})
+            return {"matricula": p.get("grua_matricula", ""),
+                    "ubicacion": texto_parametro(p.get("grua_ubicacion")),
+                    "estado": p.get("grua_estado", "")}
+    return {"matricula": "", "ubicacion": "", "estado": ""}
 
 
 def texto_parametro(valor) -> str:
@@ -119,10 +134,11 @@ def gestionar_solicitar_grua(sesion: str, resultado: dict) -> dict:
 
 
 def gestionar_corregir_dato(sesion: str, resultado: dict) -> dict:
-    guardado = parametros_contexto(resultado)
+    guardado = datos_grua(resultado)
     nuevos = resultado.get("parameters", {})
-    matricula = nuevos.get("matricula") or guardado.get("matricula", "")
-    ubicacion = texto_parametro(nuevos.get("ubicacion")) or texto_parametro(guardado.get("ubicacion"))
+    # Lo que el usuario dice ahora manda; lo que no dice, se toma de lo validado
+    matricula = texto_parametro(nuevos.get("matricula")) or guardado["matricula"]
+    ubicacion = texto_parametro(nuevos.get("ubicacion")) or guardado["ubicacion"]
     if not ubicacion:
         return responder("¿En qué ciudad estás?", None,
                          [contexto(sesion, 3, matricula=negocio.normalizar_matricula(matricula),
@@ -131,17 +147,16 @@ def gestionar_corregir_dato(sesion: str, resultado: dict) -> dict:
 
 
 def gestionar_confirmacion(sesion: str, resultado: dict) -> dict:
-    guardado = parametros_contexto(resultado)
-    if guardado.get("estado") != "pendiente_confirmar":
+    guardado = datos_grua(resultado)
+    if guardado["estado"] != "pendiente_confirmar":
         return responder("Antes necesito una matrícula válida. ¿Me la dices?", None,
                          [contexto(sesion, 3, **guardado)])
-    texto, ssml = negocio.confirmar_grua(guardado["matricula"],
-                                         texto_parametro(guardado.get("ubicacion")))
+    texto, ssml = negocio.confirmar_grua(guardado["matricula"], guardado["ubicacion"])
     return responder(texto, ssml, [contexto(sesion, 0)])
 
 
 def gestionar_negacion(sesion: str, resultado: dict) -> dict:
-    guardado = parametros_contexto(resultado)
+    guardado = datos_grua(resultado)
     texto, ssml = negocio.cancelar_grua()
     return responder(texto, ssml, [contexto(sesion, 3, **{**guardado, "estado": "corrigiendo"})])
 

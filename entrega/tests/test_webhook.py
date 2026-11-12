@@ -43,6 +43,14 @@ def ctx_salida(respuesta):
     return next(c for c in respuesta["outputContexts"] if c["name"] == CTX)
 
 
+def ctx_entrada(grua_matricula, grua_ubicacion, grua_estado, **de_dialogflow):
+    """Contexto tal como lo reenvia Dialogflow: lo nuestro (grua_*) + los
+    parametros de la intencion detectada, que Dialogflow copia encima."""
+    return [{"name": CTX, "parameters": {"grua_matricula": grua_matricula,
+                                         "grua_ubicacion": grua_ubicacion,
+                                         "grua_estado": grua_estado, **de_dialogflow}}]
+
+
 # Flujo con contexto
 
 def test_grua_faltan_parametros_deja_hablar_a_dialogflow():
@@ -52,7 +60,7 @@ def test_grua_faltan_parametros_deja_hablar_a_dialogflow():
 def test_grua_matricula_con_formato_invalido():
     r = enviar("solicitar_grua", {"matricula": "12AB", "ubicacion": "Madrid"})
     assert "formato válido" in r["fulfillmentText"]
-    assert ctx_salida(r)["parameters"]["estado"] == "esperando_matricula"
+    assert ctx_salida(r)["parameters"]["grua_estado"] == "esperando_matricula"
 
 
 def test_grua_matricula_hablada_se_normaliza():
@@ -76,37 +84,43 @@ def test_grua_camino_bueno_pide_confirmacion():
     assert "¿Confirmas" in r["fulfillmentText"]
     ctx = ctx_salida(r)
     assert ctx["lifespanCount"] == 5
-    assert ctx["parameters"] == {"matricula": "1234BCD", "ubicacion": "Madrid",
-                                 "estado": "pendiente_confirmar"}
+    assert ctx["parameters"] == {"grua_matricula": "1234BCD", "grua_ubicacion": "Madrid",
+                                 "grua_estado": "pendiente_confirmar"}
 
 
 def test_confirmacion_si_abre_aviso_y_cierra_contexto():
-    guardado = [{"name": CTX, "parameters": {"matricula": "1234BCD", "ubicacion": "Madrid",
-                                              "estado": "pendiente_confirmar"}}]
+    guardado = ctx_entrada("1234BCD", "Madrid", "pendiente_confirmar")
     r = enviar("solicitar_grua-si", contextos=guardado)
     assert "AV-" in r["fulfillmentText"] and "30 minutos" in r["fulfillmentText"]
     assert ctx_salida(r)["lifespanCount"] == 0
 
 
 def test_confirmacion_no_mantiene_contexto_para_corregir():
-    guardado = [{"name": CTX, "parameters": {"matricula": "1234BCD", "ubicacion": "Madrid",
-                                              "estado": "pendiente_confirmar"}}]
+    guardado = ctx_entrada("1234BCD", "Madrid", "pendiente_confirmar")
     r = enviar("solicitar_grua-no", contextos=guardado)
     assert "no pido la grúa" in r["fulfillmentText"]
-    assert ctx_salida(r)["parameters"]["estado"] == "corrigiendo"
+    assert ctx_salida(r)["parameters"]["grua_estado"] == "corrigiendo"
 
 
 def test_corregir_matricula_a_mitad_de_flujo():
-    guardado = [{"name": CTX, "parameters": {"matricula": "", "ubicacion": "Valencia",
-                                              "estado": "esperando_matricula"}}]
+    guardado = ctx_entrada("", "Valencia", "esperando_matricula")
     r = enviar("corregir_dato", {"matricula": "9012JKL"}, contextos=guardado)
     assert "Toyota Corolla" in r["fulfillmentText"] and "Valencia" in r["fulfillmentText"]
-    assert ctx_salida(r)["parameters"]["estado"] == "pendiente_confirmar"
+    assert ctx_salida(r)["parameters"]["grua_estado"] == "pendiente_confirmar"
+
+
+def test_corregir_ciudad_cuando_dialogflow_vacia_la_matricula_del_contexto():
+    # Caso real (12/11/2026): tras "no", el usuario dice "estoy en Barcelona".
+    # Dialogflow copia en el contexto matricula="" y ubicacion como lista.
+    guardado = ctx_entrada("1234BCD", "Madrid", "corrigiendo",
+                           matricula="", ubicacion="Barcelona")
+    r = enviar("corregir_dato", {"matricula": "", "ubicacion": ["Barcelona"]}, contextos=guardado)
+    assert "Seat León" in r["fulfillmentText"] and "Barcelona" in r["fulfillmentText"]
+    assert ctx_salida(r)["parameters"]["grua_matricula"] == "1234BCD"
 
 
 def test_corregir_ciudad_a_mitad_de_flujo():
-    guardado = [{"name": CTX, "parameters": {"matricula": "1234BCD", "ubicacion": "Madrid",
-                                              "estado": "corrigiendo"}}]
+    guardado = ctx_entrada("1234BCD", "Madrid", "corrigiendo")
     r = enviar("corregir_dato", {"ubicacion": "Barcelona"}, contextos=guardado)
     assert "Barcelona" in r["fulfillmentText"]
 
