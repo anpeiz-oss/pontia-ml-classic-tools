@@ -90,10 +90,18 @@ LETRAS_HABLADAS = {"BE": "B", "CE": "C", "DE": "D", "EFE": "F", "GE": "G",
 
 
 def normalizar_matricula(valor) -> str:
-    """'1234 bcd', '1234-BCD', '1234 be ce de' -> '1234BCD'."""
+    """
+    Deja la matricula como la escribiria una persona: '1234BCD'.
+
+    El STT de Dialogflow la transcribe de muchas formas segun como se dicte:
+    '1234 bcd', '1234-BCD', '1 2 3 4 B C D' (dictada cifra a cifra),
+    '1.234 BCD' (lo toma como un numero con separador de miles) o
+    '1234 be ce de' (letras deletreadas).
+    """
     if isinstance(valor, list):  # Dialogflow manda lista si el parametro es "is list"
         valor = valor[0] if valor else ""
-    texto = str(valor or "").upper().replace("-", " ").strip()
+    texto = str(valor or "").upper()
+    texto = re.sub(r"[.,\-]", " ", texto)          # 1.234 / 1,234 / 1234-BCD
     palabras = [LETRAS_HABLADAS.get(p, p) for p in texto.split()]
     return "".join(palabras)
 

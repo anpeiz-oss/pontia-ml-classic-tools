@@ -69,6 +69,14 @@ def test_grua_matricula_hablada_se_normaliza():
     assert "Seat León" in r["fulfillmentText"]
 
 
+@pytest.mark.parametrize("dictada", ["1 2 3 4 B C D", "1.234 BCD", "1.234 bcd", "1,234 BCD",
+                                     "1234-bcd", "1234 be ce de"])
+def test_grua_matricula_transcrita_por_el_stt(dictada):
+    # Formas reales en que el STT de Dialogflow transcribe "1234 BCD" dictada
+    r = enviar("solicitar_grua", {"matricula": dictada, "ubicacion": "Madrid"})
+    assert "Seat León" in r["fulfillmentText"]
+
+
 def test_grua_matricula_inexistente():
     r = enviar("solicitar_grua", {"matricula": "9999XYZ", "ubicacion": "Madrid"})
     assert "No encuentro" in r["fulfillmentText"]

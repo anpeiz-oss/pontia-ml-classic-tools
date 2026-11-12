@@ -122,7 +122,14 @@ def detectar_por_voz(audio_bytes: bytes):
             language_code=IDIOMA,
             sample_rate_hertz=FS,
             model="latest_short",          # mejor para frases cortas de diálogo
-            phrase_hints=["grúa", "matrícula", "póliza", "franquicia", "siniestro"],
+            # Pistas para el STT. $OOV_CLASS_ALPHANUMERIC_SEQUENCE es una clase de
+            # Google Speech que favorece secuencias de letras y numeros (matriculas)
+            speech_contexts=[dialogflow.SpeechContext(
+                phrases=["grúa", "matrícula", "póliza", "franquicia", "siniestro",
+                         "$OOV_CLASS_ALPHANUMERIC_SEQUENCE",
+                         "la matrícula es $OOV_CLASS_ALPHANUMERIC_SEQUENCE"],
+                boost=10,
+            )],
         )
     )
     return clientes.detect_intent(request={
