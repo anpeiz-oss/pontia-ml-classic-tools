@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from webhook import main
 
 SESION = "projects/proyecto-aseguradora-api/agent/sessions/test-123"
-CTX = f"{SESION}/contexts/ctx_grua_en_curso"
+CTX = f"{SESION}/contexts/solicitar_grua-followup"
 
 cliente = TestClient(main.app)
 

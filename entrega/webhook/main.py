@@ -10,7 +10,7 @@ Exponer a internet (por ejemplo con Cloudflare Tunnel):
 y pegar la URL publica + /webhook en Dialogflow -> Fulfillment.
 
 Intenciones que gestiona (ver dialogflow/GUIA_CONSOLA.md):
-    solicitar_grua            flujo con contexto ctx_grua_en_curso (slot filling)
+    solicitar_grua            flujo con contexto solicitar_grua-followup (slot filling)
     solicitar_grua-si         confirmacion: abre el aviso
     solicitar_grua-no         negacion: ofrece corregir
     corregir_dato             correccion de matricula o ciudad a mitad de flujo
@@ -35,7 +35,10 @@ from webhook.rag import Documental
 
 load_dotenv()
 
-CONTEXTO = "ctx_grua_en_curso"
+# Es el contexto que crea Dialogflow al anadir los follow-up si/no a
+# solicitar_grua. Reutilizarlo mantiene la anidacion visual en la consola
+# y sigue siendo el unico contexto del agente.
+CONTEXTO = "solicitar_grua-followup"
 # Con SSML=1 la respuesta va en SSML para el TTS de Dialogflow. Ponlo a 0 si
 # pruebas en el simulador o en Dialogflow Messenger y ves las etiquetas.
 USAR_SSML = os.environ.get("SSML", "1") == "1"
@@ -65,7 +68,7 @@ def contexto(sesion: str, lifespan: int, **parametros) -> dict:
 
 
 def parametros_contexto(resultado: dict) -> dict:
-    """Parametros guardados en ctx_grua_en_curso (si esta activo)."""
+    """Parametros guardados en solicitar_grua-followup (si esta activo)."""
     for ctx in resultado.get("outputContexts", []):
         if ctx.get("name", "").endswith(f"/contexts/{CONTEXTO}"):
             return ctx.get("parameters", {})

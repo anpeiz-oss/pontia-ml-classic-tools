@@ -29,15 +29,15 @@ El diagrama está en Mermaid (GitHub lo dibuja). Para la entrega se puede export
 
 ## Intenciones
 
-Un único contexto, `ctx_grua_en_curso`, que gestiona el webhook.
+Un único contexto, `solicitar_grua-followup` (el que Dialogflow crea al añadir los follow-up sí/no a `solicitar_grua`), que gestiona el webhook.
 
 | Intención | Propósito | Parámetros | Contexto |
 | --- | --- | --- | --- |
 | `Default Welcome Intent` | Saludo y lo que sabe hacer | – | – |
-| `solicitar_grua` | Inicia el flujo de grúa | `matricula` (@matricula, regex, obligatoria), `ubicacion` (@sys.geo-city, obligatoria) | sale `ctx_grua_en_curso` |
-| `solicitar_grua-si` | Confirma: abre el aviso con tiempo estimado según ciudad | – | entra y cierra `ctx_grua_en_curso` |
-| `solicitar_grua-no` | Niega: ofrece corregir o cancelar | – | entra `ctx_grua_en_curso` |
-| `corregir_dato` | Corrige matrícula o ciudad a mitad de flujo (extra) | `matricula`, `ubicacion` | entra `ctx_grua_en_curso` |
+| `solicitar_grua` | Inicia el flujo de grúa | `matricula` (@matricula, regex, obligatoria), `ubicacion` (@sys.geo-city, obligatoria) | sale `solicitar_grua-followup` |
+| `solicitar_grua-si` | Confirma: abre el aviso con tiempo estimado según ciudad | – | entra y cierra `solicitar_grua-followup` |
+| `solicitar_grua-no` | Niega: ofrece corregir o cancelar | – | entra `solicitar_grua-followup` |
+| `corregir_dato` | Corrige matrícula o ciudad a mitad de flujo (extra) | `matricula`, `ubicacion` | entra `solicitar_grua-followup` |
 | `consultar_coberturas` | Coberturas de la póliza de una matrícula | `matricula` | – |
 | `consultar_poliza` | Vencimiento, franquicia, prima o modalidad | `matricula`, `dato_poliza` (entidad propia) | – |
 | `consultar_condiciones` | Preguntas sobre los documentos (OCR + LLM) | – | – |
@@ -53,7 +53,7 @@ El export del agente (intenciones, entidades, frases de entrenamiento y contexto
 
 **Validación con regex en el webhook.** Aunque la entidad `@matricula` ya es una regex, el STT devuelve cosas como «1234 be ce de» o «1234-bcd». El webhook normaliza (mayúsculas, quita guiones y espacios, convierte letras deletreadas) y valida contra `^\d{4}[B-DF-HJ-NP-TV-Z]{3}$` (sin vocales, Ñ ni Q, como las matrículas actuales). La respuesta cambia según el resultado: formato inválido, matrícula sin póliza, póliza sin asistencia o petición de confirmación con los datos del vehículo.
 
-**Contexto gestionado por el webhook.** El webhook guarda en `ctx_grua_en_curso` la matrícula y la ciudad ya validadas y un `estado`. Así la confirmación usa los datos validados y no los que entendió Dialogflow, y la corrección funciona aunque el usuario solo diga la matrícula nueva.
+**Contexto gestionado por el webhook.** El webhook guarda en `solicitar_grua-followup` la matrícula y la ciudad ya validadas y un `estado`. Así la confirmación usa los datos validados y no los que entendió Dialogflow, y la corrección funciona aunque el usuario solo diga la matrícula nueva.
 
 **OCR.** Los documentos son cinco imágenes de documentos ficticios de Seguros Angel (póliza, condicionado de asistencia, tabla de modalidades, procedimiento de siniestros y recibo), generadas por `ocr/generar_documentos.py` con giro, ruido y desenfoque de escáner. Son imágenes, no PDF con texto, así que la extracción es OCR real. Preprocesado en `ocr/ocr.py`:
 
